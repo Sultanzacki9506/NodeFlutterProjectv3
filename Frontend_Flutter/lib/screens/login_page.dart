@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../services/api_service.dart';
 import '../core/constants/colors.dart';
 
@@ -9,13 +11,33 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
+    _animController.forward();
+  }
 
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
@@ -34,20 +56,24 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text(
-                "⚠ Email atau Password salah!",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+              content: const Row(
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_circle,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    "Email atau password salah",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-              backgroundColor: AppColors.accentPink,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: AppColors.borderColor, width: 2),
-              ),
+              backgroundColor: AppColors.accentRose,
             ),
           );
         }
@@ -59,29 +85,31 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
-  // Widget untuk kotak dekoratif di background
-  Widget _buildDecoBox({
+  /// Floating background orb
+  Widget _buildOrb({
     required double size,
     required Color color,
-    double rotation = 0,
+    required double top,
+    required double left,
   }) {
-    return Transform.rotate(
-      angle: rotation,
+    return Positioned(
+      top: top,
+      left: left,
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
+          shape: BoxShape.circle,
           color: color,
-          border: Border.all(color: AppColors.borderColor, width: 3),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: AppColors.borderColor,
-              offset: Offset(3, 3),
-              blurRadius: 0,
+              color: color.withValues(alpha: 0.5),
+              blurRadius: 40,
+              spreadRadius: 10,
             ),
           ],
         ),
@@ -89,342 +117,320 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Widget untuk input field bergaya Neobrutalism
-  Widget _buildNeoBrutalField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isPassword = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        border: Border.all(color: AppColors.borderColor, width: 3),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.borderColor,
-            offset: Offset(4, 4),
-            blurRadius: 0,
+  /// Widget glass card reusable
+  Widget _buildGlassCard({required Widget child, EdgeInsets? padding}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: padding ?? const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: AppColors.glassWhite,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: TextFormField(
-        controller: controller,
-        obscureText: isPassword && !_isPasswordVisible,
-        keyboardType: keyboardType,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: AppColors.borderColor,
+          child: child,
         ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(
-            color: Color(0xFF666666),
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(icon, color: AppColors.borderColor, size: 22),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
-                    color: AppColors.borderColor,
-                  ),
-                  onPressed: () =>
-                      setState(() => _isPasswordVisible = !_isPasswordVisible),
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          errorStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.accentPink,
-          ),
-        ),
-        validator: validator,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      backgroundColor: AppColors.bgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.gradientStart,
+              AppColors.gradientMid,
+              AppColors.gradientEnd,
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Background Orbs
+            _buildOrb(
+              size: 200,
+              color: AppColors.primaryGreen.withValues(alpha: 0.2),
+              top: -50,
+              left: -50,
+            ),
+            _buildOrb(
+              size: 250,
+              color: AppColors.accentCyan.withValues(alpha: 0.15),
+              top: size.height * 0.4,
+              left: size.width * 0.6,
+            ),
+            _buildOrb(
+              size: 150,
+              color: AppColors.accentRose.withValues(alpha: 0.1),
+              top: size.height * 0.8,
+              left: 20,
+            ),
 
-                // === HEADER AREA ===
-                // Elemen dekoratif atas
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Kotak dekoratif di belakang
-                    Positioned(
-                      left: 40,
-                      top: 10,
-                      child: _buildDecoBox(
-                        size: 30,
-                        color: AppColors.accentYellow,
-                        rotation: 0.3,
-                      ),
-                    ),
-                    Positioned(
-                      right: 50,
-                      top: 5,
-                      child: _buildDecoBox(
-                        size: 20,
-                        color: AppColors.accentPink,
-                        rotation: -0.2,
-                      ),
-                    ),
-                    // Ikon utama dengan border neobrutalism
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        border: Border.all(
-                          color: AppColors.borderColor,
-                          width: 4,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: AppColors.borderColor,
-                            offset: Offset(5, 5),
-                            blurRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.recycling,
-                        size: 55,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
+            // Main Content
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: SlideTransition(
+                      position: _slideAnim,
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 20),
 
-                // Judul aplikasi
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentYellow,
-                    border: Border.all(color: AppColors.borderColor, width: 3),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppColors.borderColor,
-                        offset: Offset(3, 3),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    "BANK SAMPAH",
-                    style: TextStyle(
-                      color: AppColors.borderColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "♻ Kelola sampah jadi berkah ♻",
-                  style: TextStyle(
-                    color: Color(0xFF666666),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 36),
-
-                // === KARTU LOGIN ===
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    border: Border.all(color: AppColors.borderColor, width: 3),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppColors.borderColor,
-                        offset: Offset(6, 6),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Label "MASUK"
-                      Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            "Selamat Datang!",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.borderColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 16),
-                        child: Text(
-                          "Silakan login untuk melanjutkan",
-                          style: TextStyle(
-                            color: Color(0xFF888888),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-
-                      // Field Email
-                      _buildNeoBrutalField(
-                        controller: emailController,
-                        label: "EMAIL",
-                        icon: Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) =>
-                            value!.isEmpty ? "Email tidak boleh kosong" : null,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Field Password
-                      _buildNeoBrutalField(
-                        controller: passwordController,
-                        label: "PASSWORD",
-                        icon: Icons.lock_outline,
-                        isPassword: true,
-                        validator: (value) => value!.isEmpty
-                            ? "Password tidak boleh kosong"
-                            : null,
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Tombol Login
-                      SizedBox(
-                        width: double.infinity,
-                        height: 58,
-                        child: GestureDetector(
-                          onTap: _isLoading ? null : _handleLogin,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 100),
-                            decoration: BoxDecoration(
-                              color: _isLoading
-                                  ? AppColors.primaryGreen.withValues(alpha: 0.7)
-                                  : AppColors.primaryGreen,
-                              border: Border.all(
-                                color: AppColors.borderColor,
-                                width: 3,
+                            // === LOGO ===
+                            Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.primaryGreen,
+                                    AppColors.accentCyan,
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primaryGreen.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.borderColor,
-                                  offset: _isLoading
-                                      ? const Offset(1, 1)
-                                      : const Offset(5, 5),
-                                  blurRadius: 0,
+                              child: const Icon(
+                                CupertinoIcons.leaf_arrow_circlepath,
+                                size: 48,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+
+                            // === JUDUL ===
+                            const Text(
+                              "Bank Sampah",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              "Kelola sampah jadi berkah",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            const SizedBox(height: 48),
+
+                            // === KARTU LOGIN (GLASS) ===
+                            _buildGlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Masuk ke Akun",
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    "Silakan login untuk melanjutkan",
+                                    style: TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
+
+                                  // Field Email
+                                  TextFormField(
+                                    controller: emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: "Email",
+                                      prefixIcon: const Icon(
+                                        CupertinoIcons.mail,
+                                        color: AppColors.textMuted,
+                                        size: 20,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                    validator: (value) => value!.isEmpty
+                                        ? "Email tidak boleh kosong"
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Field Password
+                                  TextFormField(
+                                    controller: passwordController,
+                                    obscureText: !_isPasswordVisible,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: "Password",
+                                      prefixIcon: const Icon(
+                                        CupertinoIcons.lock,
+                                        color: AppColors.textMuted,
+                                        size: 20,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _isPasswordVisible
+                                              ? CupertinoIcons.eye
+                                              : CupertinoIcons.eye_slash,
+                                          color: AppColors.textMuted,
+                                          size: 20,
+                                        ),
+                                        onPressed: () => setState(
+                                          () => _isPasswordVisible =
+                                              !_isPasswordVisible,
+                                        ),
+                                      ),
+                                    ),
+                                    validator: (value) => value!.isEmpty
+                                        ? "Password tidak boleh kosong"
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 32),
+
+                                  // Tombol Login
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 56,
+                                    child: ElevatedButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _handleLogin,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primaryGreen,
+                                        shadowColor: AppColors.primaryGreen
+                                            .withValues(alpha: 0.5),
+                                        elevation: 8,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                        ),
+                                      ),
+                                      child: _isLoading
+                                          ? const SizedBox(
+                                              height: 22,
+                                              width: 22,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2.5,
+                                              ),
+                                            )
+                                          : const Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  "Masuk",
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 8),
+                                                Icon(
+                                                  CupertinoIcons
+                                                      .arrow_right_circle_fill,
+                                                  size: 22,
+                                                  color: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+
+                            // === FOOTER ===
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.leaf_arrow_circlepath,
+                                  size: 16,
+                                  color: AppColors.primaryGreen,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Bank Sampah App",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 3,
-                                      ),
-                                    )
-                                  : const Text(
-                                      "MASUK →",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 2,
-                                      ),
-                                    ),
-                            ),
-                          ),
+                            const SizedBox(height: 20),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 28),
-
-                // === FOOTER DEKORASI ===
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildDecoBox(
-                      size: 14,
-                      color: AppColors.primaryGreen,
-                      rotation: 0.4,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildDecoBox(
-                      size: 10,
-                      color: AppColors.accentYellow,
-                      rotation: -0.3,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildDecoBox(
-                      size: 14,
-                      color: AppColors.accentPink,
-                      rotation: 0.2,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildDecoBox(
-                      size: 10,
-                      color: AppColors.primaryGreen,
-                      rotation: -0.5,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

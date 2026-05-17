@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
@@ -17,13 +19,16 @@ class _DashboardPageState extends State<DashboardPage> {
   List<dynamic> allSampah = [];
   List<dynamic> filteredSampah = [];
   final TextEditingController searchController = TextEditingController();
+  bool _isRefreshing = false;
 
   void refreshData() async {
+    setState(() => _isRefreshing = true);
     final data = await ApiService().fetchSampah();
     if (mounted) {
       setState(() {
         allSampah = data;
         filteredSampah = data;
+        _isRefreshing = false;
       });
     }
   }
@@ -40,184 +45,320 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
+  /// Reusable glass card widget
+  Widget _buildGlassCard({
+    required Widget child,
+    EdgeInsets? padding,
+    double radius = 24,
+    Color? overrideColor,
+    Border? border,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: overrideColor ?? AppColors.glassWhite,
+            borderRadius: BorderRadius.circular(radius),
+            border:
+                border ??
+                Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   void _confirmLogout(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => _buildNeoBrutalDialog(
-        title: "LOGOUT",
-        content: "Apakah yakin ingin keluar dari aplikasi?",
-        confirmText: "KELUAR",
-        confirmColor: AppColors.accentPink,
-        onConfirm: () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('token');
-          if (ctx.mounted) {
-            Navigator.pushNamedAndRemoveUntil(ctx, '/', (route) => false);
-          }
-        },
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 12, 28, 40),
+            decoration: BoxDecoration(
+              color: AppColors.gradientMid.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(32),
+              ),
+              border: const Border(
+                top: BorderSide(color: AppColors.glassBorder, width: 1.5),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRose.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.power,
+                    color: AppColors.accentRose,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  "Keluar dari Aplikasi?",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Anda perlu login kembali untuk mengakses data.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 54,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            "Batal",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SizedBox(
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.remove('token');
+                            if (ctx.mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                ctx,
+                                '/',
+                                (route) => false,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentRose,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            "Keluar",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   void _confirmDelete(int id, String nama) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => _buildNeoBrutalDialog(
-        title: "HAPUS DATA",
-        content: "Apakah yakin ingin menghapus '$nama'?",
-        confirmText: "HAPUS",
-        confirmColor: AppColors.accentPink,
-        onConfirm: () async {
-          bool success = await ApiService().deleteSampah(id);
-          if (ctx.mounted) {
-            Navigator.pop(ctx);
-            if (success && mounted) {
-              refreshData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    "✓ Data berhasil dihapus",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  backgroundColor: AppColors.accentPink,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(
-                      color: AppColors.borderColor,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              );
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildNeoBrutalDialog({
-    required String title,
-    required String content,
-    required String confirmText,
-    required Color confirmColor,
-    required VoidCallback onConfirm,
-  }) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.borderColor, width: 3),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.borderColor,
-              offset: Offset(5, 5),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: AppColors.borderColor,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 12, 28, 40),
+            decoration: BoxDecoration(
+              color: AppColors.gradientMid.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(32),
+              ),
+              border: const Border(
+                top: BorderSide(color: AppColors.glassBorder, width: 1.5),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              content,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF666666),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.bgColor,
-                        border: Border.all(
-                          color: AppColors.borderColor,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: AppColors.borderColor,
-                            offset: Offset(2, 2),
-                            blurRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text(
-                          "BATAL",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
+                Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: onConfirm,
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: confirmColor,
-                        border: Border.all(
-                          color: AppColors.borderColor,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: AppColors.borderColor,
-                            offset: Offset(2, 2),
-                            blurRadius: 0,
+                const SizedBox(height: 32),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRose.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.trash,
+                    color: AppColors.accentRose,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  "Hapus Data?",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "\"$nama\" akan dihapus secara permanen.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 54,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          confirmText,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: Colors.white,
+                          child: const Text(
+                            "Batal",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SizedBox(
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            bool success = await ApiService().deleteSampah(id);
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              if (success && mounted) {
+                                refreshData();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.check_mark_circled,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "Data berhasil dihapus",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: AppColors.primaryGreen,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentRose,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            "Hapus",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -238,257 +379,313 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bgColor,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen,
-                border: Border.all(color: AppColors.borderColor, width: 2),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.borderColor,
-                    offset: Offset(2, 2),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.recycling, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              "BANK SAMPAH",
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.gradientStart,
+              AppColors.gradientMid,
+              AppColors.gradientEnd,
+            ],
+          ),
         ),
-        backgroundColor: AppColors.bgColor,
-        foregroundColor: AppColors.borderColor,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => _confirmLogout(context),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.accentPink,
-                  border: Border.all(color: AppColors.borderColor, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppColors.borderColor,
-                      offset: Offset(2, 2),
-                      blurRadius: 0,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // === HEADER ===
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primaryGreen,
+                            AppColors.accentCyan.withValues(alpha: 0.8),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryGreen.withValues(
+                              alpha: 0.3,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.leaf_arrow_circlepath,
+                        size: 26,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Beranda",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          Text(
+                            "Kelola bank sampah",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _confirmLogout(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.glassWhite,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.power,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.logout, size: 18, color: Colors.white),
               ),
-            ),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(3),
-          child: Container(height: 3, color: AppColors.borderColor),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Search bar neobrutalism
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                border: Border.all(color: AppColors.borderColor, width: 2.5),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.borderColor,
-                    offset: Offset(4, 4),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: searchController,
-                onChanged: filterData,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                decoration: const InputDecoration(
-                  hintText: "Cari jenis sampah...",
-                  hintStyle: TextStyle(
-                    color: Color(0xFFAAAAAA),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  prefixIcon: Icon(Icons.search, color: AppColors.borderColor),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
 
-          // Header jumlah data
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentYellow,
-                    border: Border.all(color: AppColors.borderColor, width: 2),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppColors.borderColor,
-                        offset: Offset(2, 2),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    "${filteredSampah.length} DATA",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 1,
-                    ),
-                  ),
+              // === SEARCH & STATS COMBINED ===
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // List data
-          Expanded(
-            child: filteredSampah.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            color: AppColors.bgColor,
-                            border: Border.all(
-                              color: AppColors.borderColor,
-                              width: 3,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: AppColors.borderColor,
-                                offset: Offset(4, 4),
-                                blurRadius: 0,
+                child: _buildGlassCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Stats Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                "${allSampah.length}",
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primaryGreen,
+                                ),
+                              ),
+                              const Text(
+                                "Total Data",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
+                                ),
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.inbox_outlined,
-                            size: 36,
-                            color: AppColors.borderColor,
+                          Container(
+                            width: 1,
+                            height: 40,
+                            color: AppColors.glassBorder,
+                          ),
+                          Column(
+                            children: [
+                              Text(
+                                "${filteredSampah.length}",
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.accentCyan,
+                                ),
+                              ),
+                              const Text(
+                                "Hasil Filter",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Search Bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: TextField(
+                          controller: searchController,
+                          onChanged: filterData,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Cari jenis sampah...",
+                            hintStyle: const TextStyle(
+                              color: AppColors.textMuted,
+                            ),
+                            prefixIcon: const Icon(
+                              CupertinoIcons.search,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 16,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          "Belum ada data",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF888888),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredSampah.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredSampah[index];
-                      return _buildSampahCard(item);
-                    },
+                      ),
+                    ],
                   ),
+                ),
+              ),
+
+              // === LIST DATA ===
+              Expanded(
+                child: _isRefreshing
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryGreen,
+                          strokeWidth: 2.5,
+                          backgroundColor: AppColors.primaryGreen.withValues(
+                            alpha: 0.2,
+                          ),
+                        ),
+                      )
+                    : filteredSampah.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                        itemCount: filteredSampah.length,
+                        itemBuilder: (context, index) {
+                          final item = filteredSampah[index];
+                          return _buildSampahCard(item);
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      // FAB neobrutalism
+
+      // === FABs ===
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Tombol Chat
-          GestureDetector(
-            onTap: () => Navigator.push(
+          FloatingActionButton.small(
+            heroTag: "chat",
+            onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ChatPage()),
             ),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.accentBlue,
-                border: Border.all(color: AppColors.borderColor, width: 2.5),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.borderColor,
-                    offset: Offset(3, 3),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.smart_toy, size: 22, color: Colors.white),
+            backgroundColor: AppColors.accentCyan,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              CupertinoIcons.chat_bubble_text,
+              size: 22,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
-          // Tombol Tambah
-          GestureDetector(
-            onTap: () async {
+          FloatingActionButton(
+            heroTag: "add",
+            onPressed: () async {
               bool? added = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SampahFormPage()),
               );
               if (added == true) refreshData();
             },
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen,
-                border: Border.all(color: AppColors.borderColor, width: 3),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.borderColor,
-                    offset: Offset(4, 4),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.add, size: 28, color: Colors.white),
+            backgroundColor: AppColors.primaryGreen,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              CupertinoIcons.add,
+              size: 28,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.glassWhite,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.glassBorder, width: 1),
+            ),
+            child: const Icon(
+              CupertinoIcons.tray_arrow_down,
+              size: 40,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            "Belum ada data",
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Tap tombol + di bawah untuk\nmenambahkan sampah baru",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 14,
+              height: 1.4,
             ),
           ),
         ],
@@ -497,98 +694,114 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildSampahCard(Map<String, dynamic> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        border: Border.all(color: AppColors.borderColor, width: 2.5),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.borderColor,
-            offset: Offset(4, 4),
-            blurRadius: 0,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Gambar
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.borderColor, width: 2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: item['pic'] != null
-                  ? Image.network(
-                      "${ApiService().baseUrl}/uploads/${item['pic']}",
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      color: AppColors.accentYellow.withValues(alpha: 0.3),
-                      child: const Icon(
-                        Icons.recycling,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _buildGlassCard(
+        radius: 20,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Gambar (Square-ish rounded)
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.glassBorder, width: 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: item['pic'] != null
+                    ? Image.network(
+                        "${ApiService().baseUrl}/uploads/${item['pic']}",
+                        fit: BoxFit.cover,
+                        width: 64,
+                        height: 64,
+                      )
+                    : const Icon(
+                        CupertinoIcons.leaf_arrow_circlepath,
                         color: AppColors.primaryGreen,
-                        size: 28,
+                        size: 30,
                       ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          // Nama
-          Expanded(
-            child: Text(
-              item['nama_sampah'] ?? '',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: AppColors.borderColor,
               ),
             ),
-          ),
-          // Action buttons
-          _buildActionBtn(Icons.edit, AppColors.accentBlue, () async {
-            bool? updated = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => SampahFormPage(sampah: item)),
-            );
-            if (updated == true) refreshData();
-          }),
-          const SizedBox(width: 8),
-          _buildActionBtn(
-            Icons.delete_outline,
-            AppColors.accentPink,
-            () => _confirmDelete(item['id'], item['nama_sampah']),
-          ),
-        ],
+            const SizedBox(width: 16),
+            // Nama
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['nama_sampah'] ?? '',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "ID: ${item['id']}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Actions
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildActionBtn(
+                  CupertinoIcons.pencil,
+                  AppColors.accentCyan.withValues(alpha: 0.15),
+                  AppColors.accentCyan,
+                  () async {
+                    bool? updated = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SampahFormPage(sampah: item),
+                      ),
+                    );
+                    if (updated == true) refreshData();
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildActionBtn(
+                  CupertinoIcons.trash,
+                  AppColors.accentRose.withValues(alpha: 0.15),
+                  AppColors.accentRose,
+                  () => _confirmDelete(item['id'], item['nama_sampah']),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildActionBtn(IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: color,
-          border: Border.all(color: AppColors.borderColor, width: 2),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.borderColor,
-              offset: Offset(2, 2),
-              blurRadius: 0,
-            ),
-          ],
+  Widget _buildActionBtn(
+    IconData icon,
+    Color bgColor,
+    Color iconColor,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 18, color: iconColor),
         ),
-        child: Icon(icon, size: 18, color: Colors.white),
       ),
     );
   }

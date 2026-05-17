@@ -8,7 +8,7 @@ import 'package:http_parser/http_parser.dart';
 class ApiService {
   // final String baseUrl = "http://10.0.2.2:3000";
   // final String baseUrlNlp = "http://10.0.2.2:8000";
-  
+
   final String baseUrl = "http://192.168.100.222:3000";
   final String baseUrlNlp = "http://192.168.100.222:8000";
 
@@ -78,7 +78,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        debugPrint('Gagal mengambil data sampah. Status: ${response.statusCode}');
+        debugPrint(
+          'Gagal mengambil data sampah. Status: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
